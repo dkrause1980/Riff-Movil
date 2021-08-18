@@ -93,11 +93,12 @@ public class MainActivity extends AppCompatActivity {
         return preferences.getBoolean("sesion",false);
     }
 
-    public void guardarPreferences(String nombre, boolean sw){
+    public void guardarPreferences(String nombre, boolean sw, String legajo){
         preferences = getSharedPreferences(STRING_PREFERENCE, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = preferences.edit();
         editor.putString("nombre",nombre);
         editor.putBoolean("sesion",sw);
+        editor.putString("legajo",legajo);
         editor.commit();
     }
 
@@ -126,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
                         Empleado e = response.body();
                         if(e.getContrasenia().equals(password.getText().toString())){
                             //Toast.makeText(MainActivity.this,"Ingresando",Toast.LENGTH_SHORT).show();
-                            guardarPreferences(e.getNombre(),aSwitch.isChecked());
+                            guardarPreferences(e.getNombre(),aSwitch.isChecked(),e.getLegajo());
 
                             listaCodigos();
                             Intent menu = new Intent(getApplicationContext(), MenuPrincipal.class);
@@ -157,39 +158,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /*public void toCSV(List<CodigoEvento> cod){
 
-        cod = listaCodigos();
-        File directory = getFilesDir();
-        File file = new File(directory,"codigos.csv");
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        try {
-
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            //bw.write("Hola,Descripcion");
-            bw.newLine();
-            for(int i=0;i<cod.size();i++){
-                bw.write(cod.get(i).getCodigo()+","+cod.get(i).getDescripcion());
-                bw.newLine();
-            }
-            Log.d("tag1","ARCHIVO ALMACENADO EN : "+file.getAbsolutePath());
-            bw.close();
-            fw.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-
-    }*/
 
     public List<CodigoEvento> listaCodigos(){
 
@@ -223,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
                         //bw.write("Codigo,Descripcion");
                         bw.newLine();
                         for(int i=0;i<ce.size();i++){
-                            bw.write(ce.get(i).getCodigo()+","+ce.get(i).getDescripcion());
+                            bw.write(ce.get(i).getId_tipo_falla()+","+ce.get(i).getCodigo()+","+ce.get(i).getDescripcion());
                             bw.newLine();
                         }
                         Log.d("tag1","ARCHIVO ALMACENADO EN : "+file.getAbsolutePath());

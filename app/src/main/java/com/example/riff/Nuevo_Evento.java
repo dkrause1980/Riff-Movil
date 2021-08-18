@@ -3,17 +3,15 @@ package com.example.riff;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.FragmentTransaction;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -23,17 +21,16 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 
-import com.example.riff.interfaces.CodigosAPI;
-import com.example.riff.models.CodigoEvento;
+import com.example.riff.interfaces.EventosAPI;
+import com.example.riff.models.Evento;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
-import java.util.List;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -46,6 +43,9 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
     ImageView im_tipo_evento, im_direccion, im_ubicacion, im_comment;
     private LocationManager locationManager;
     EditText pt_longitud,pt_latitud,pt_tipo_evento,pt_calle,pt_altura,pt_piso,pt_depto,pt_comentario;
+    private Button bt_enviar;
+    Evento evento;
+    int id_evento;
 
 
     @Override
@@ -69,6 +69,10 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
         pt_piso = findViewById(R.id.pt_piso);
         pt_depto = findViewById(R.id.pt_depto);
         pt_comentario = findViewById(R.id.pt_comentario);
+        bt_enviar = findViewById(R.id.bt_enviar);
+        bt_enviar.setOnClickListener(this);
+        pt_latitud.setText("");
+        pt_longitud.setText("");
 
 
 
@@ -92,9 +96,12 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
                 builder.setAdapter(adapter, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        String valor = adapter.getItem(which);
-                        Toast.makeText(getApplicationContext(),"Seleccionó: "+valor,Toast.LENGTH_SHORT).show();
-                        pt_tipo_evento.setText(valor);
+                        String seleccion = adapter.getItem(which);
+                        String[] valor = seleccion.split("-");
+                        Toast.makeText(getApplicationContext(),"Seleccionó: "+valor[0],Toast.LENGTH_LONG).show();
+                        pt_tipo_evento.setText(valor[1]+"-"+valor[2]);
+                        id_evento = Integer.parseInt(valor[0]);
+                        Log.d("id_evento",String.valueOf(id_evento));
                     }
                 });
                 //builder.show();
@@ -210,9 +217,69 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
                 builder2.show();
 
                 break;
+
+            case R.id.bt_enviar:
+
+                evento = new Evento();
+                Calendar calendar = Calendar.getInstance();
+                String fecha_creacion = calendar.get(Calendar.YEAR)+"-"+calendar.get(Calendar.MONTH)+"-"+calendar.get(Calendar.DATE);
+                evento.setFecha_creacion(fecha_creacion);
+                SharedPreferences preferences = getSharedPreferences("credenciales", Context.MODE_PRIVATE);
+                String legajo_tecnico = preferences.getString("legajo","xxxxxx");
+                evento.setLegajo_tecnico(legajo_tecnico);
+
+
+                if(!pt_tipo_evento.getText().toString().isEmpty()){
+
+                    evento.setId_tipo_falla(id_evento);
+
+                    if (!pt_calle.getText().toString().isEmpty()){
+                        evento.setCalle(pt_calle.getText().toString().trim());
+                        evento.setNumero(pt_altura.getText().toString().trim());
+                        evento.setPiso(pt_piso.getText().toString().trim());
+                        evento.setDepto(pt_depto.getText().toString().trim());
+
+                        if(!pt_latitud.getText().toString().equals("")){
+
+                            double lat = Double.parseDouble(pt_latitud.getText().toString());
+                            double longi = Double.parseDouble(pt_longitud.getText().toString());
+
+                            evento.setLatitud(lat);
+                            evento.setLongitud(longi);
+
+                            if(!pt_comentario.getText().toString().isEmpty()){
+
+                                evento.setComentario(pt_comentario.getText().toString());
+
+
+                                postEv(evento);
+
+
+                            }else {
+                                Toast.makeText(getApplicationContext(),"Ingrese un comentario",Toast.LENGTH_LONG).show();
+                            }
+                        } else {
+
+                            Toast.makeText(getApplicationContext(), "Ingrese ubicación", Toast.LENGTH_LONG).show();
+                        }
+
+                    } else{
+
+                        Toast.makeText(getApplicationContext(),"Ingrese dirección ",Toast.LENGTH_LONG).show();
+
+                    }
+
+
+                }else{
+
+                    Toast.makeText(getApplicationContext(),"Ingrese tipo de evento",Toast.LENGTH_LONG).show();
+
+                }
         }
 
     }
+
+
 
     public ArrayList<String> listaCodigos(){
         BufferedReader br = null;
@@ -223,7 +290,7 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
 
             while ((linea = br.readLine())!=null){
                 int i = 0;
-                String val = linea.replace(","," - ");
+                String val= linea.replace( ",","-");
                 datos.add(i,val);
                 i++;
             }
@@ -239,7 +306,46 @@ public class Nuevo_Evento extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    public void postEv(Evento evento){
 
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://192.168.0.231:5000/")
+                .addConverterFactory(GsonConverterFactory.create()).build();
+        EventosAPI eventosAPI = retrofit.create(EventosAPI.class);
+        Call<Evento> call = eventosAPI.postEvento(evento);
+        call.enqueue(new Callback<Evento>() {
+            @Override
+            public void onResponse(Call<Evento> call, Response<Evento> response) {
+            try {
+                if (response.isSuccessful()) {
+                    Evento ev = response.body();
+                    Toast.makeText(getApplicationContext(), "EVENTO ENVIADO", Toast.LENGTH_LONG).show();
+                    pt_tipo_evento.setText("");
+                    pt_calle.setText("");
+                    pt_altura.setText("");
+                    pt_piso.setText("");
+                    pt_depto.setText("");
+                    pt_latitud.setText("");
+                    pt_longitud.setText("");
+                    pt_comentario.setText("");
 
+                } else {
+                    Toast.makeText(getApplicationContext(), "ERROR, INTENTE MAS TARDE " + response.code(), Toast.LENGTH_LONG).show();
+
+                }
+            }catch (Exception e){
+                Toast.makeText(getApplicationContext(), "ERROR, INTENTE MAS TARDE " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+            }
+            }
+
+            @Override
+            public void onFailure(Call<Evento> call, Throwable t) {
+                Toast.makeText(getApplicationContext(),"ERROR: "+t.getMessage(),Toast.LENGTH_LONG).show();
+
+            }
+        });
+
+    }
 
 }
